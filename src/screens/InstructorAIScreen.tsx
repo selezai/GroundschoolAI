@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AIService, { ChatMessage } from '../services/ai/aiService';
@@ -36,6 +37,7 @@ export default function InstructorAIScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const aiService = AIService.getInstance();
@@ -80,15 +82,20 @@ export default function InstructorAIScreen() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: 'I apologize, but I encountered an error. Please try asking your question again.',
-        sender: 'ai',
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+    } catch (err: any) {
+      const errorMessage = err.message || 'An error occurred while processing your request';
+      
+      if (errorMessage.includes('Rate limit')) {
+        setError(errorMessage);
+        Alert.alert(
+          'Rate Limit Exceeded',
+          errorMessage,
+          [{ text: 'OK' }]
+        );
+      } else {
+        setError('An error occurred while processing your request. Please try again.');
+        Alert.alert('Error', 'An error occurred while processing your request. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +134,12 @@ export default function InstructorAIScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
           onLayout={() => flatListRef.current?.scrollToEnd()}
         />
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
 
         <View style={styles.inputContainer}>
           <TextInput
@@ -229,5 +242,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorContainer: {
+    backgroundColor: '#FFEBEE',
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 15,
+  },
+  errorText: {
+    color: '#FF0000',
+    fontSize: 14,
   },
 });
