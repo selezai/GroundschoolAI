@@ -1,14 +1,10 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import topicRoutes from './routes/topicRoutes';
 import aiRoutes from './routes/aiRoutes';
 import healthRoutes from './routes/healthRoutes';
 import fs from 'fs';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -51,12 +47,15 @@ app.use('/api/ai', aiRoutes);
 
 // List all possible web build paths for debugging
 const possiblePaths = [
+  path.join(__dirname, '../../dist/web-build'),
   path.join(__dirname, '../../../dist/web-build'),
-  path.join(__dirname, '../../web-build'),
-  path.join(__dirname, '../../../web-build'),
   path.join(process.cwd(), 'dist/web-build'),
-  path.join(process.cwd(), 'web-build')
+  path.join(process.cwd(), '../dist/web-build'),
+  path.join(process.cwd(), '../../dist/web-build')
 ];
+
+console.log('Current directory:', process.cwd());
+console.log('__dirname:', __dirname);
 
 console.log('Checking possible web build paths:');
 possiblePaths.forEach(p => {

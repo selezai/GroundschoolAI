@@ -3,19 +3,24 @@ services:
     name: groundschool-ai
     env: node
     region: oregon
+    rootDir: .
     buildCommand: |
-      # Install root dependencies first
+      # Install dependencies and build client
       npm install
-      
-      # Install expo-cli globally
       npm install -g expo-cli
-      
-      # Build web client
       npx expo export:web
       
-      # Move web build to the correct location
+      # Debug client build
+      echo "Current directory contents:"
+      ls -la
+      
+      # Create dist directory and move web build
       mkdir -p dist
       mv web-build dist/
+      
+      # Debug dist directory
+      echo "Dist directory contents:"
+      ls -la dist/
       
       # Build server
       cd server
@@ -23,12 +28,10 @@ services:
       npm run build
       cd ..
       
-      # List directories for debugging
-      echo "Contents of current directory:"
+      # Final debug
+      echo "Final directory structure:"
       ls -la
-      echo "Contents of dist directory:"
       ls -la dist/
-      echo "Contents of dist/web-build directory:"
       ls -la dist/web-build/
     startCommand: cd server && npm start
     envVars:
