@@ -5,21 +5,38 @@ services:
     region: oregon
     rootDir: .
     buildCommand: |
+      echo "Starting build process..." && \
       cd /opt/render/project/src && \
+      echo "Installing root dependencies..." && \
       npm install && \
+      echo "Installing expo-cli..." && \
       npm install -g expo-cli && \
+      echo "Building web client..." && \
       npx expo export:web && \
+      echo "Web-build directory after expo export:" && \
+      ls -la web-build/ && \
       cd server && \
+      echo "Installing server dependencies..." && \
       npm install && \
+      echo "Building server..." && \
       npm run build && \
+      echo "Server dist directory after build:" && \
+      ls -la dist/ && \
       cd .. && \
-      echo "Project root contents before move:" && \
-      ls -la && \
-      echo "Moving web-build to server/dist/" && \
-      mv web-build server/dist/ && \
-      echo "Server dist contents after move:" && \
-      ls -la server/dist/
-    startCommand: cd /opt/render/project/src/server && npm start
+      echo "Moving web-build to server/dist/..." && \
+      mkdir -p server/dist/web-build && \
+      cp -r web-build/* server/dist/web-build/ && \
+      echo "Final server/dist/web-build contents:" && \
+      ls -la server/dist/web-build/
+    startCommand: |
+      cd /opt/render/project/src/server && \
+      echo "Starting server from directory:" && \
+      pwd && \
+      echo "Server dist directory contents:" && \
+      ls -la dist/ && \
+      echo "Web build directory contents:" && \
+      ls -la dist/web-build/ && \
+      npm start
     envVars:
       - key: NODE_ENV
         value: production
