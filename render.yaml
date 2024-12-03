@@ -4,8 +4,9 @@ services:
     env: node
     region: oregon
     buildCommand: |
-      # Build client
+      # Install dependencies and build client
       npm install
+      npx expo install
       npm run build
       # Build server
       cd server
