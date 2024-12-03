@@ -4,8 +4,19 @@ services:
     env: node
     region: oregon
     rootDir: .
-    buildCommand: npm install && npm run build
-    startCommand: cd server && npm start
+    buildCommand: |
+      cd /opt/render/project/src && \
+      npm install && \
+      npm install -g expo-cli && \
+      npx expo export:web && \
+      mkdir -p dist && \
+      mv web-build dist/ && \
+      cd server && \
+      npm install && \
+      npm run build && \
+      cd .. && \
+      ls -la dist/web-build/
+    startCommand: cd /opt/render/project/src/server && npm start
     envVars:
       - key: NODE_ENV
         value: production
