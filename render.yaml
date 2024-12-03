@@ -15,6 +15,11 @@ services:
       npm install && \
       npm run build && \
       cd .. && \
+      echo "Build complete. Directory contents:" && \
+      ls -la && \
+      echo "Dist directory contents:" && \
+      ls -la dist/ && \
+      echo "Web build directory contents:" && \
       ls -la dist/web-build/
     startCommand: cd /opt/render/project/src/server && npm start
     envVars:

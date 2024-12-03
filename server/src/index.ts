@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { router } from './routes';
+import topicRoutes from './routes/topicRoutes';
+import aiRoutes from './routes/aiRoutes';
+import healthRoutes from './routes/healthRoutes';
 import fs from 'fs';
 
 const app = express();
@@ -22,7 +24,9 @@ app.use(cors());
 app.use(express.json());
 
 // API routes
-app.use('/api', router);
+app.use('/api/topics', topicRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/health', healthRoutes);
 
 // Debug directory structure
 const serverDir = process.cwd();
