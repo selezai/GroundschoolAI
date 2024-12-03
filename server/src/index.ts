@@ -20,7 +20,18 @@ console.log('Environment:', {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✓' : '✗'
 });
 
-app.use(cors());
+// CORS configuration
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://groundschool-ai.onrender.com', 'https://groundschoolai.com']
+    : ['http://localhost:19006', 'http://localhost:8080'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // API routes
