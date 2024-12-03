@@ -5,6 +5,7 @@ import path from 'path';
 import topicRoutes from './routes/topicRoutes';
 import aiRoutes from './routes/aiRoutes';
 import healthRoutes from './routes/healthRoutes';
+import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
@@ -48,20 +49,48 @@ app.get('/api/health', (req, res) => {
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 
-// Serve static files from the Expo web build
-const webBuildPath = path.join(__dirname, '../../../dist/web-build');
-console.log('Web build path:', webBuildPath);
-app.use(express.static(webBuildPath));
+// List all possible web build paths for debugging
+const possiblePaths = [
+  path.join(__dirname, '../../../dist/web-build'),
+  path.join(__dirname, '../../web-build'),
+  path.join(__dirname, '../../../web-build'),
+  path.join(process.cwd(), 'dist/web-build'),
+  path.join(process.cwd(), 'web-build')
+];
+
+console.log('Checking possible web build paths:');
+possiblePaths.forEach(p => {
+  console.log(`${p}: ${fs.existsSync(p) ? 'EXISTS' : 'NOT FOUND'}`);
+  if (fs.existsSync(p)) {
+    console.log('Contents:', fs.readdirSync(p));
+  }
+});
+
+// Find the first existing web build path
+const webBuildPath = possiblePaths.find(p => fs.existsSync(p));
+
+if (!webBuildPath) {
+  console.error('No web build directory found in any of the possible locations');
+} else {
+  console.log('Using web build path:', webBuildPath);
+  app.use(express.static(webBuildPath));
+}
 
 // Handle client-side routing
 app.get('*', (req, res) => {
+  if (!webBuildPath) {
+    return res.status(404).send('Web build directory not found');
+  }
+
   try {
     const indexPath = path.join(webBuildPath, 'index.html');
-    console.log('Serving index.html from:', indexPath);
-    if (!require('fs').existsSync(indexPath)) {
+    console.log('Attempting to serve index.html from:', indexPath);
+    
+    if (!fs.existsSync(indexPath)) {
       console.error('index.html not found at:', indexPath);
       return res.status(404).send('Application files not found');
     }
+    
     res.sendFile(indexPath);
   } catch (error) {
     console.error('Error serving index.html:', error);

@@ -4,20 +4,32 @@ services:
     env: node
     region: oregon
     buildCommand: |
-      # Install dependencies and build server
-      cd server
-      npm install
-      npm run build
-      cd ..
-      
-      # Install root dependencies
+      # Install root dependencies first
       npm install
       
       # Install expo-cli globally
       npm install -g expo-cli
       
       # Build web client
-      npm run web:build
+      npx expo export:web
+      
+      # Move web build to the correct location
+      mkdir -p dist
+      mv web-build dist/
+      
+      # Build server
+      cd server
+      npm install
+      npm run build
+      cd ..
+      
+      # List directories for debugging
+      echo "Contents of current directory:"
+      ls -la
+      echo "Contents of dist directory:"
+      ls -la dist/
+      echo "Contents of dist/web-build directory:"
+      ls -la dist/web-build/
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
