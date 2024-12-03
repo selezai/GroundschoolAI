@@ -10,7 +10,18 @@ import healthRoutes from './routes/healthRoutes';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
+// Print environment variables (excluding sensitive values)
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  SUPABASE_URL: process.env.SUPABASE_URL ? '✓' : '✗',
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? '✓' : '✗',
+  PAYSTACK_PUBLIC_KEY: process.env.PAYSTACK_PUBLIC_KEY ? '✓' : '✗',
+  PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY ? '✓' : '✗',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✓' : '✗'
+});
 
 // Middleware
 app.use(cors());
@@ -37,13 +48,18 @@ app.get('/api/health', (req, res) => {
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 
-// Serve static files from the React app
-const clientBuildPath = path.join(__dirname, '../../web-build');
-app.use(express.static(clientBuildPath));
+// Serve static files from the Expo web build
+const webBuildPath = path.join(__dirname, '../../web-build');
+app.use(express.static(webBuildPath));
 
-// Handle React routing, return all requests to React app
+// Handle client-side routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+  try {
+    res.sendFile(path.join(webBuildPath, 'index.html'));
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    res.status(500).send('Error serving the application');
+  }
 });
 
 // Error handling middleware
@@ -59,13 +75,4 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log('Environment:', {
-    NODE_ENV: process.env.NODE_ENV,
-    PORT: process.env.PORT,
-    SUPABASE_URL: process.env.SUPABASE_URL ? '✓' : '✗',
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? '✓' : '✗',
-    PAYSTACK_PUBLIC_KEY: process.env.PAYSTACK_PUBLIC_KEY ? '✓' : '✗',
-    PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY ? '✓' : '✗',
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✓' : '✗'
-  });
 });

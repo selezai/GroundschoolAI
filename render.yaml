@@ -1,17 +1,12 @@
 services:
   - type: web
-    name: groundschoolai
+    name: groundschool-ai
     env: node
     region: oregon
     buildCommand: |
-      # Install dependencies and build client
+      cd server && npm install && npm run build && cd ..
       npm install
-      npx expo install
-      npm run build
-      # Build server
-      cd server
-      npm install
-      npm run build
+      npx expo export:web
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
