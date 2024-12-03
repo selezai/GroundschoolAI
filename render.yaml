@@ -3,9 +3,9 @@ services:
     name: groundschool-ai
     env: node
     region: oregon
-    rootDir: .
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: cd server && npm start
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production

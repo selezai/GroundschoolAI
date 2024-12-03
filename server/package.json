@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc",
+    "build": "cd .. && npm install && npm install -g expo-cli && npx expo export:web && cd server && npm install && tsc && cd .. && mkdir -p server/dist/web-build && cp -r web-build/* server/dist/web-build/",
     "test": "jest"
   },
   "dependencies": {
