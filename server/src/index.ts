@@ -45,25 +45,28 @@ app.get('/api/health', (req, res) => {
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 
-// Serve static files from the Expo web build
-const webBuildPath = path.join('/opt/render/project/src/dist/web-build');
+// List directory contents for debugging
+const rootDir = process.cwd();
+console.log('Current working directory:', rootDir);
+
+const webBuildPath = path.join(rootDir, '..', 'dist/web-build');
 console.log('Web build path:', webBuildPath);
 
-// List directory contents for debugging
 try {
-  console.log('Root directory contents:', fs.readdirSync('/opt/render/project/src'));
-  console.log('Dist directory contents:', fs.readdirSync('/opt/render/project/src/dist'));
+  console.log('Root directory contents:', fs.readdirSync(path.join(rootDir, '..')));
+  console.log('Dist directory contents:', fs.readdirSync(path.join(rootDir, '..', 'dist')));
   if (fs.existsSync(webBuildPath)) {
     console.log('Web build directory contents:', fs.readdirSync(webBuildPath));
+  } else {
+    console.error('Web build directory not found at:', webBuildPath);
   }
 } catch (error) {
   console.error('Error listing directory contents:', error);
 }
 
-if (!fs.existsSync(webBuildPath)) {
-  console.error('Web build directory not found at:', webBuildPath);
-} else {
-  console.log('Web build directory found at:', webBuildPath);
+// Serve static files from the Expo web build
+if (fs.existsSync(webBuildPath)) {
+  console.log('Serving static files from:', webBuildPath);
   app.use(express.static(webBuildPath));
 }
 
