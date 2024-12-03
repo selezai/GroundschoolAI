@@ -9,18 +9,16 @@ services:
       npm install && \
       npm install -g expo-cli && \
       npx expo export:web && \
-      mkdir -p dist && \
-      mv web-build dist/ && \
       cd server && \
       npm install && \
       npm run build && \
       cd .. && \
-      echo "Build complete. Directory contents:" && \
+      echo "Project root contents before move:" && \
       ls -la && \
-      echo "Dist directory contents:" && \
-      ls -la dist/ && \
-      echo "Web build directory contents:" && \
-      ls -la dist/web-build/
+      echo "Moving web-build to server/dist/" && \
+      mv web-build server/dist/ && \
+      echo "Server dist contents after move:" && \
+      ls -la server/dist/
     startCommand: cd /opt/render/project/src/server && npm start
     envVars:
       - key: NODE_ENV

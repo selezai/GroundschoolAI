@@ -30,19 +30,17 @@ app.use('/api/health', healthRoutes);
 
 // Debug directory structure
 const serverDir = process.cwd();
-const projectRoot = path.join(serverDir, '..');
-const webBuildPath = path.join(projectRoot, 'dist', 'web-build');
+const webBuildPath = path.join(serverDir, 'dist', 'web-build');
 
 console.log('Directory structure:');
 console.log('Server directory:', serverDir);
-console.log('Project root:', projectRoot);
 console.log('Web build path:', webBuildPath);
 
 // List all directories
 try {
-  console.log('\nProject root contents:', fs.readdirSync(projectRoot));
+  console.log('\nServer directory contents:', fs.readdirSync(serverDir));
   
-  const distPath = path.join(projectRoot, 'dist');
+  const distPath = path.join(serverDir, 'dist');
   if (fs.existsSync(distPath)) {
     console.log('\nDist directory contents:', fs.readdirSync(distPath));
     
