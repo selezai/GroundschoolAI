@@ -45,56 +45,39 @@ app.get('/api/health', (req, res) => {
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 
-// List all possible web build paths for debugging
-const possiblePaths = [
-  path.join(__dirname, '../../dist/web-build'),
-  path.join(__dirname, '../../../dist/web-build'),
-  path.join(process.cwd(), 'dist/web-build'),
-  path.join(process.cwd(), '../dist/web-build'),
-  path.join(process.cwd(), '../../dist/web-build')
-];
+// Serve static files from the Expo web build
+const webBuildPath = path.join('/opt/render/project/src/dist/web-build');
+console.log('Web build path:', webBuildPath);
 
-console.log('Current directory:', process.cwd());
-console.log('__dirname:', __dirname);
-
-console.log('Checking possible web build paths:');
-possiblePaths.forEach(p => {
-  console.log(`${p}: ${fs.existsSync(p) ? 'EXISTS' : 'NOT FOUND'}`);
-  if (fs.existsSync(p)) {
-    console.log('Contents:', fs.readdirSync(p));
+// List directory contents for debugging
+try {
+  console.log('Root directory contents:', fs.readdirSync('/opt/render/project/src'));
+  console.log('Dist directory contents:', fs.readdirSync('/opt/render/project/src/dist'));
+  if (fs.existsSync(webBuildPath)) {
+    console.log('Web build directory contents:', fs.readdirSync(webBuildPath));
   }
-});
+} catch (error) {
+  console.error('Error listing directory contents:', error);
+}
 
-// Find the first existing web build path
-const webBuildPath = possiblePaths.find(p => fs.existsSync(p));
-
-if (!webBuildPath) {
-  console.error('No web build directory found in any of the possible locations');
+if (!fs.existsSync(webBuildPath)) {
+  console.error('Web build directory not found at:', webBuildPath);
 } else {
-  console.log('Using web build path:', webBuildPath);
+  console.log('Web build directory found at:', webBuildPath);
   app.use(express.static(webBuildPath));
 }
 
 // Handle client-side routing
 app.get('*', (req, res) => {
-  if (!webBuildPath) {
-    return res.status(404).send('Web build directory not found');
+  const indexPath = path.join(webBuildPath, 'index.html');
+  console.log('Attempting to serve index.html from:', indexPath);
+  
+  if (!fs.existsSync(indexPath)) {
+    console.error('index.html not found at:', indexPath);
+    return res.status(404).send('Application files not found');
   }
-
-  try {
-    const indexPath = path.join(webBuildPath, 'index.html');
-    console.log('Attempting to serve index.html from:', indexPath);
-    
-    if (!fs.existsSync(indexPath)) {
-      console.error('index.html not found at:', indexPath);
-      return res.status(404).send('Application files not found');
-    }
-    
-    res.sendFile(indexPath);
-  } catch (error) {
-    console.error('Error serving index.html:', error);
-    res.status(500).send('Error serving the application');
-  }
+  
+  res.sendFile(indexPath);
 });
 
 // Error handling middleware

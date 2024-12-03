@@ -4,36 +4,17 @@ services:
     env: node
     region: oregon
     rootDir: .
-    buildCommand: |
-      # Install dependencies and build client
-      npm install
-      npm install -g expo-cli
-      npx expo export:web
-      
-      # Debug client build
-      echo "Current directory contents:"
-      ls -la
-      
-      # Create dist directory and move web build
-      mkdir -p dist
-      mv web-build dist/
-      
-      # Debug dist directory
-      echo "Dist directory contents:"
-      ls -la dist/
-      
-      # Build server
-      cd server
-      npm install
+    buildCommand: >
+      cd /opt/render/project/src &&
+      npm install &&
+      npm install -g expo-cli &&
+      npx expo export:web &&
+      mkdir -p dist &&
+      mv web-build dist/ &&
+      cd server &&
+      npm install &&
       npm run build
-      cd ..
-      
-      # Final debug
-      echo "Final directory structure:"
-      ls -la
-      ls -la dist/
-      ls -la dist/web-build/
-    startCommand: cd server && npm start
+    startCommand: cd /opt/render/project/src/server && npm start
     envVars:
       - key: NODE_ENV
         value: production
