@@ -1,207 +1,105 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { Topic, TopicProgress } from '../services/groundSchool/groundSchoolService';
-import GroundSchoolService from '../services/groundSchool/groundSchoolService';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { RouteProp, useRoute } from '@react-navigation/native';
+import { Database } from '../types/database';
+import { groundSchoolService } from '../services/groundSchool/groundSchoolService';
+import { TopicProgress } from '../services/groundSchool/groundSchoolService';
+import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { theme } from '../theme';
 
-const TopicDetailScreen: React.FC = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
+type Topic = Database['public']['Tables']['topics']['Row'];
+
+type RootStackParamList = {
+  TopicDetail: { topicId: string };
+};
+
+type TopicDetailScreenRouteProp = RouteProp<RootStackParamList, 'TopicDetail'>;
+
+export const TopicDetailScreen: React.FC = () => {
+  const route = useRoute<TopicDetailScreenRouteProp>();
   const { user } = useAuth();
-  const { topicId } = route.params as { topicId: string };
-
   const [topic, setTopic] = useState<Topic | null>(null);
-  const [relatedTopics, setRelatedTopics] = useState<Topic[]>([]);
   const [progress, setProgress] = useState<TopicProgress | null>(null);
-  const [note, setNote] = useState('');
-  const [simplifiedContent, setSimplifiedContent] = useState<string>('');
-  const [isSimplified, setIsSimplified] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const groundSchoolService = GroundSchoolService.getInstance();
-
   useEffect(() => {
-    loadTopicData();
-  }, [topicId]);
-
-  const loadTopicData = async () => {
-    try {
-      setLoading(true);
-      const [topicData, relatedData, progressData] = await Promise.all([
-        groundSchoolService.getTopicById(topicId),
-        groundSchoolService.getRelatedTopics(topicId),
-        user ? groundSchoolService.getUserProgress(user.id) : Promise.resolve([]),
-      ]);
-
-      if (topicData) {
-        setTopic(topicData);
-        setRelatedTopics(relatedData);
-        const topicProgress = progressData.find(p => p.topicId === topicId);
-        setProgress(topicProgress || null);
-
-        // Update last accessed time
-        if (user) {
-          await groundSchoolService.updateTopicProgress(user.id, topicId, {
-            lastAccessed: Date.now(),
-          });
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load topic details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddNote = async () => {
-    if (!user || !note.trim()) return;
-
-    try {
-      await groundSchoolService.addNoteToTopic(user.id, topicId, note.trim());
-      const updatedProgress = await groundSchoolService.getUserProgress(user.id);
-      const topicProgress = updatedProgress.find(p => p.topicId === topicId);
-      setProgress(topicProgress || null);
-      setNote('');
-      Alert.alert('Success', 'Note added successfully');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add note');
-    }
-  };
-
-  const toggleSimplifiedContent = async () => {
-    if (!isSimplified && !simplifiedContent && topic) {
+    const loadTopicAndProgress = async () => {
       try {
-        const simplified = await groundSchoolService.getSimplifiedExplanation(topic.content);
-        setSimplifiedContent(simplified);
-        setIsSimplified(true);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to generate simplified explanation');
-      }
-    } else {
-      setIsSimplified(!isSimplified);
-    }
-  };
+        const [topicData, progressData] = await Promise.all([
+          groundSchoolService.getTopicById(route.params.topicId),
+          user ? groundSchoolService.getTopicProgress(user.id, route.params.topicId) : null
+        ]);
 
-  const markAsCompleted = async () => {
-    if (!user) return;
+        setTopic(topicData);
+        setProgress(progressData);
+      } catch (error) {
+        console.error('Error loading topic:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTopicAndProgress();
+  }, [route.params.topicId, user]);
+
+  const handleStartStudy = async () => {
+    if (!user || !topic) return;
 
     try {
-      await groundSchoolService.updateTopicProgress(user.id, topicId, {
-        isCompleted: true,
+      await groundSchoolService.updateTopicProgress({
+        topicId: topic.id,
+        userId: user.id,
+        isCompleted: false,
+        lastAccessed: Date.now(),
+        timeSpent: 0,
+        notes: [],
       });
-      const updatedProgress = await groundSchoolService.getUserProgress(user.id);
-      const topicProgress = updatedProgress.find(p => p.topicId === topicId);
-      setProgress(topicProgress || null);
-      Alert.alert('Success', 'Topic marked as completed');
+
+      // Navigate to study screen or update UI
     } catch (error) {
-      Alert.alert('Error', 'Failed to update progress');
+      console.error('Error starting study:', error);
     }
   };
 
-  if (loading || !topic) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2D9CDB" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (!topic) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Topic not found</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{topic.title}</Text>
-        <Text style={styles.category}>{topic.category}</Text>
-        {progress?.isCompleted && (
-          <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-            <Text style={styles.completedText}>Completed</Text>
+      <View style={styles.content}>
+        <Text style={styles.title}>{topic.name}</Text>
+        {topic.description && (
+          <Text style={styles.description}>{topic.description}</Text>
+        )}
+        
+        {progress && (
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressTitle}>Your Progress</Text>
+            <Text>Time Spent: {Math.round(progress.timeSpent / 60)} minutes</Text>
+            <Text>Status: {progress.isCompleted ? 'Completed' : 'In Progress'}</Text>
           </View>
         )}
+
+        <Button
+          title={progress ? 'Continue Learning' : 'Start Learning'}
+          onPress={handleStartStudy}
+          style={styles.button}
+        />
       </View>
-
-      <View style={styles.contentContainer}>
-        <View style={styles.contentHeader}>
-          <Text style={styles.contentTitle}>Content</Text>
-          <TouchableOpacity
-            style={styles.simplifyButton}
-            onPress={toggleSimplifiedContent}
-          >
-            <Ionicons
-              name={isSimplified ? 'school' : 'school-outline'}
-              size={24}
-              color="#2D9CDB"
-            />
-            <Text style={styles.simplifyText}>
-              {isSimplified ? 'Show Original' : 'Simplify'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.content}>
-          {isSimplified ? simplifiedContent || topic.content : topic.content}
-        </Text>
-
-        {!progress?.isCompleted && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={markAsCompleted}
-          >
-            <Text style={styles.completeButtonText}>Mark as Completed</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.notesSection}>
-        <Text style={styles.sectionTitle}>Notes</Text>
-        <View style={styles.noteInput}>
-          <TextInput
-            style={styles.input}
-            value={note}
-            onChangeText={setNote}
-            placeholder="Add a note..."
-            multiline
-          />
-          <TouchableOpacity
-            style={styles.addNoteButton}
-            onPress={handleAddNote}
-          >
-            <Ionicons name="add-circle" size={24} color="#2D9CDB" />
-          </TouchableOpacity>
-        </View>
-        {progress?.notes.map((note, index) => (
-          <View key={index} style={styles.noteItem}>
-            <Ionicons name="document-text" size={20} color="#2D9CDB" />
-            <Text style={styles.noteText}>{note}</Text>
-          </View>
-        ))}
-      </View>
-
-      {relatedTopics.length > 0 && (
-        <View style={styles.relatedTopics}>
-          <Text style={styles.sectionTitle}>Related Topics</Text>
-          {relatedTopics.map((relatedTopic) => (
-            <TouchableOpacity
-              key={relatedTopic.id}
-              style={styles.relatedTopicItem}
-              onPress={() => navigation.push('TopicDetail', { topicId: relatedTopic.id })}
-            >
-              <Text style={styles.relatedTopicTitle}>{relatedTopic.title}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#2D9CDB" />
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -209,138 +107,45 @@ const TopicDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+  content: {
+    padding: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
+    marginBottom: 10,
   },
-  category: {
+  description: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 4,
+    color: theme.colors.text,
+    marginBottom: 20,
   },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
+  progressContainer: {
+    backgroundColor: theme.colors.surface,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
   },
-  completedText: {
-    color: '#4CAF50',
-    marginLeft: 4,
-  },
-  contentContainer: {
-    padding: 16,
-  },
-  contentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  contentTitle: {
+  progressTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 10,
   },
-  simplifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  button: {
+    marginTop: 20,
   },
-  simplifyText: {
-    color: '#2D9CDB',
-    marginLeft: 4,
-  },
-  content: {
+  errorText: {
     fontSize: 16,
-    lineHeight: 24,
-    color: '#444',
-  },
-  completeButton: {
-    backgroundColor: '#2D9CDB',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  completeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  notesSection: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  noteInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 8,
-    minHeight: 48,
-  },
-  addNoteButton: {
-    padding: 8,
-  },
-  noteItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  noteText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#444',
-  },
-  relatedTopics: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-  },
-  relatedTopicItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  relatedTopicTitle: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginRight: 8,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
-
-export default TopicDetailScreen;

@@ -12,35 +12,42 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AIService, { ChatMessage } from '../services/ai/aiService';
+import { useAuth } from '../contexts/AuthContext';
+import { useMaterials } from '../hooks/useMaterials';
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'ai';
-  timestamp: Date;
+  timestamp: number;
 }
 
 export default function InstructorAIScreen() {
-  const [messages, setMessages] = useState<Message[]>([
+  const { user } = useAuth();
+  const { materials } = useMaterials();
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       text: 'Welcome! I\'m your AI flight instructor. How can I help you with your ground school studies today?',
       sender: 'ai',
-      timestamp: new Date(),
+      timestamp: Date.now(),
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
+  const aiService = AIService.getInstance();
+
   const handleSend = async () => {
     if (!inputText.trim()) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: inputText.trim(),
       sender: 'user',
-      timestamp: new Date(),
+      timestamp: Date.now(),
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -48,32 +55,46 @@ export default function InstructorAIScreen() {
     setIsLoading(true);
     Keyboard.dismiss();
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      // Get context from uploaded materials
+      const relevantMaterials = materials
+        .filter(m => m.content?.toLowerCase().includes(inputText.toLowerCase()))
+        .map(m => m.content)
+        .join('\n\n');
+
+      const response = await aiService.getChatResponse({
+        question: userMessage.text,
+        context: relevantMaterials,
+        previousMessages: messages.map(m => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text,
+          timestamp: m.timestamp,
+        })),
+      });
+
+      const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: getMockResponse(userMessage.text),
+        text: response.content,
         sender: 'ai',
-        timestamp: new Date(),
+        timestamp: response.timestamp,
       };
+
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: 'I apologize, but I encountered an error. Please try asking your question again.',
+        sender: 'ai',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  };
-
-  const getMockResponse = (question: string): string => {
-    // Mock AI responses based on keywords
-    if (question.toLowerCase().includes('weather')) {
-      return 'Weather is a crucial factor in aviation. Would you like to learn about weather patterns, meteorological reports, or weather minimums?';
-    } else if (question.toLowerCase().includes('navigation')) {
-      return 'Navigation is fundamental to safe flying. We can discuss VOR, GPS, dead reckoning, or other navigation topics. What specific aspect interests you?';
-    } else if (question.toLowerCase().includes('systems')) {
-      return 'Aircraft systems are complex but fascinating. We can cover electrical, hydraulic, fuel, or other systems. Which would you like to explore?';
     }
-    return 'That\'s an interesting question. Could you provide more context so I can give you a more detailed response?';
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
+  const renderMessage = ({ item }: { item: ChatMessage }) => (
     <View style={[
       styles.messageBubble,
       item.sender === 'user' ? styles.userMessage : styles.aiMessage
@@ -85,7 +106,7 @@ export default function InstructorAIScreen() {
         {item.text}
       </Text>
       <Text style={styles.timestamp}>
-        {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </Text>
     </View>
   );

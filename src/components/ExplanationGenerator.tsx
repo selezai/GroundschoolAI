@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import groundSchoolService from '../services/api/groundSchoolService';
+import AIService from '../services/ai/aiService';
+import { useMaterials } from '../hooks/useMaterials';
 
 interface ExplanationGeneratorProps {
   topicId: string;
@@ -22,175 +22,122 @@ const ExplanationGenerator: React.FC<ExplanationGeneratorProps> = ({
   onNewExplanation,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState<'simple' | 'detailed' | 'example-based'>('detailed');
+  const { materials } = useMaterials();
+  const aiService = AIService.getInstance();
 
-  const generateExplanation = async (style: 'simple' | 'detailed' | 'example-based') => {
-    setIsGenerating(true);
-    setShowOptions(false);
-
+  const generateExplanation = async () => {
     try {
-      const context = `Generate a ${style} explanation for this aviation topic. ` +
-        `Focus on making it ${style === 'simple' ? 'easy to understand' : 
-          style === 'detailed' ? 'comprehensive and technical' : 
-          'practical with real-world examples'}`;
+      setIsGenerating(true);
 
-      const result = await groundSchoolService.generateExplanation(topicId, context);
-      onNewExplanation(result.content);
+      // Get relevant context from materials
+      const relevantMaterials = materials
+        .filter(m => m.topics?.includes(topicId))
+        .map(m => m.content)
+        .join('\n\n');
+
+      const explanation = await aiService.generateExplanation({
+        topic: topicId,
+        context: relevantMaterials,
+        style: selectedStyle,
+        previousExplanations: currentContent ? [currentContent] : undefined,
+      });
+
+      onNewExplanation(explanation);
     } catch (error) {
-      console.error('Failed to generate explanation:', error);
+      console.error('Error generating explanation:', error);
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const styles = ['simple', 'detailed', 'example-based'] as const;
+
   return (
-    <View style={styles.container}>
+    <View style={styleSheet.container}>
+      <View style={styleSheet.styleSelector}>
+        {styles.map((style) => (
+          <TouchableOpacity
+            key={style}
+            style={[
+              styleSheet.styleButton,
+              selectedStyle === style && styleSheet.selectedStyle,
+            ]}
+            onPress={() => setSelectedStyle(style)}
+          >
+            <Text
+              style={[
+                styleSheet.styleText,
+                selectedStyle === style && styleSheet.selectedStyleText,
+              ]}
+            >
+              {style.charAt(0).toUpperCase() + style.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <TouchableOpacity
-        style={styles.mainButton}
-        onPress={() => setShowOptions(true)}
+        style={[styleSheet.generateButton, isGenerating && styleSheet.generatingButton]}
+        onPress={generateExplanation}
         disabled={isGenerating}
       >
-        <Ionicons
-          name={isGenerating ? 'hourglass' : 'bulb'}
-          size={24}
-          color="#fff"
-        />
-        <Text style={styles.buttonText}>
-          {isGenerating ? 'Generating...' : 'Generate Explanation'}
-        </Text>
-        {isGenerating && <ActivityIndicator color="#fff" style={styles.loader} />}
+        {isGenerating ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <>
+            <Ionicons name="refresh" size={20} color="#FFFFFF" />
+            <Text style={styleSheet.generateButtonText}>
+              Regenerate Explanation
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
-
-      <Modal
-        visible={showOptions}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowOptions(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choose Explanation Style</Text>
-            
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPress={() => generateExplanation('simple')}
-            >
-              <Ionicons name="school" size={24} color="#2D9CDB" />
-              <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>Simple Explanation</Text>
-                <Text style={styles.optionDescription}>
-                  Basic concepts explained in easy-to-understand terms
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPress={() => generateExplanation('detailed')}
-            >
-              <Ionicons name="book" size={24} color="#2D9CDB" />
-              <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>Detailed Explanation</Text>
-                <Text style={styles.optionDescription}>
-                  Comprehensive technical explanation with depth
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPress={() => generateExplanation('example-based')}
-            >
-              <Ionicons name="airplane" size={24} color="#2D9CDB" />
-              <View style={styles.optionTextContainer}>
-                <Text style={styles.optionTitle}>Example-Based</Text>
-                <Text style={styles.optionDescription}>
-                  Practical examples and real-world applications
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowOptions(false)}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const styleSheet = StyleSheet.create({
   container: {
-    marginVertical: 10,
+    marginVertical: 16,
   },
-  mainButton: {
+  styleSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  styleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+  },
+  selectedStyle: {
     backgroundColor: '#2D9CDB',
+  },
+  styleText: {
+    color: '#666666',
+    fontSize: 14,
+  },
+  selectedStyleText: {
+    color: '#FFFFFF',
+  },
+  generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
+    backgroundColor: '#2D9CDB',
+    paddingVertical: 12,
     borderRadius: 8,
+    gap: 8,
   },
-  buttonText: {
-    color: '#fff',
+  generatingButton: {
+    backgroundColor: '#90CAF9',
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  loader: {
-    marginLeft: 8,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 12,
-  },
-  optionTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
-  cancelButton: {
-    marginTop: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  cancelText: {
-    color: '#666',
-    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

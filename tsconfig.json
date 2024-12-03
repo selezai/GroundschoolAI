@@ -7,7 +7,12 @@
     "paths": {
       "*": ["src/*"]
     },
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "target": "es2020",
+    "module": "commonjs",
+    "outDir": "./dist"
   },
   "include": [
     "src/**/*",

@@ -1,17 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AIService from '../ai/aiService';
+import { Database } from '../../types/database';
+import { supabase } from '../../lib/supabaseClient';
 
-export interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  content: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  lastUpdated: string;
-  relatedTopics: string[];
-  tags: string[];
-}
+type Topic = Database['public']['Tables']['topics']['Row'];
 
 export interface TopicProgress {
   topicId: string;
@@ -25,7 +17,6 @@ export interface TopicProgress {
 class GroundSchoolService {
   private static instance: GroundSchoolService;
   private readonly STORAGE_KEYS = {
-    TOPICS: '@ground_school_topics',
     PROGRESS: '@topic_progress',
   };
 
@@ -41,180 +32,99 @@ class GroundSchoolService {
   // Get all topics
   async getAllTopics(): Promise<Topic[]> {
     try {
-      const topicsStr = await AsyncStorage.getItem(this.STORAGE_KEYS.TOPICS);
-      return topicsStr ? JSON.parse(topicsStr) : [];
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Error fetching topics: ${error.message}`);
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error getting topics:', error);
       throw error;
     }
   }
 
-  // Get topics by category
-  async getTopicsByCategory(category: string): Promise<Topic[]> {
+  // Get a specific topic by ID
+  async getTopicById(id: string): Promise<Topic | null> {
     try {
-      const allTopics = await this.getAllTopics();
-      return allTopics.filter(topic => topic.category === category);
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        throw new Error(`Error fetching topic: ${error.message}`);
+      }
+
+      return data;
     } catch (error) {
-      console.error('Error getting topics by category:', error);
+      console.error('Error getting topic:', error);
       throw error;
     }
   }
 
-  // Get topic by ID
-  async getTopicById(topicId: string): Promise<Topic | null> {
+  // Get topic progress
+  async getTopicProgress(userId: string, topicId: string): Promise<TopicProgress | null> {
     try {
-      const topics = await this.getAllTopics();
-      return topics.find(topic => topic.id === topicId) || null;
+      const progressStr = await AsyncStorage.getItem(this.STORAGE_KEYS.PROGRESS);
+      const progress: TopicProgress[] = progressStr ? JSON.parse(progressStr) : [];
+      return progress.find(p => p.userId === userId && p.topicId === topicId) || null;
     } catch (error) {
-      console.error('Error getting topic by ID:', error);
-      throw error;
-    }
-  }
-
-  // Get recommended topics based on user progress and preferences
-  async getRecommendedTopics(userId: string): Promise<Topic[]> {
-    try {
-      const [allTopics, progress] = await Promise.all([
-        this.getAllTopics(),
-        this.getUserProgress(userId),
-      ]);
-
-      // Get incomplete topics
-      const incompleteTags = new Set<string>();
-      const completedTopicIds = new Set(
-        progress
-          .filter(p => p.isCompleted)
-          .map(p => p.topicId)
-      );
-
-      // Collect tags from completed topics
-      allTopics
-        .filter(topic => completedTopicIds.has(topic.id))
-        .forEach(topic => topic.tags.forEach(tag => incompleteTags.add(tag)));
-
-      // Find topics with similar tags that aren't completed
-      return allTopics
-        .filter(topic => !completedTopicIds.has(topic.id))
-        .sort((a, b) => {
-          const aMatchCount = a.tags.filter(tag => incompleteTags.has(tag)).length;
-          const bMatchCount = b.tags.filter(tag => incompleteTags.has(tag)).length;
-          return bMatchCount - aMatchCount;
-        })
-        .slice(0, 5);
-    } catch (error) {
-      console.error('Error getting recommended topics:', error);
-      throw error;
-    }
-  }
-
-  // Get user progress for all topics
-  async getUserProgress(userId: string): Promise<TopicProgress[]> {
-    try {
-      const progressStr = await AsyncStorage.getItem(`${this.STORAGE_KEYS.PROGRESS}_${userId}`);
-      return progressStr ? JSON.parse(progressStr) : [];
-    } catch (error) {
-      console.error('Error getting user progress:', error);
+      console.error('Error getting topic progress:', error);
       throw error;
     }
   }
 
   // Update topic progress
-  async updateTopicProgress(userId: string, topicId: string, updates: Partial<TopicProgress>): Promise<void> {
+  async updateTopicProgress(progress: TopicProgress): Promise<void> {
     try {
-      const progress = await this.getUserProgress(userId);
-      const existingProgress = progress.find(p => p.topicId === topicId);
+      const progressStr = await AsyncStorage.getItem(this.STORAGE_KEYS.PROGRESS);
+      let allProgress: TopicProgress[] = progressStr ? JSON.parse(progressStr) : [];
       
-      if (existingProgress) {
-        Object.assign(existingProgress, updates);
+      const index = allProgress.findIndex(
+        p => p.userId === progress.userId && p.topicId === progress.topicId
+      );
+
+      if (index !== -1) {
+        allProgress[index] = progress;
       } else {
-        progress.push({
-          userId,
-          topicId,
-          isCompleted: false,
-          lastAccessed: Date.now(),
-          timeSpent: 0,
-          notes: [],
-          ...updates,
-        });
+        allProgress.push(progress);
       }
 
-      await AsyncStorage.setItem(
-        `${this.STORAGE_KEYS.PROGRESS}_${userId}`,
-        JSON.stringify(progress)
-      );
+      await AsyncStorage.setItem(this.STORAGE_KEYS.PROGRESS, JSON.stringify(allProgress));
     } catch (error) {
       console.error('Error updating topic progress:', error);
       throw error;
     }
   }
 
-  // Add note to topic
-  async addNoteToTopic(userId: string, topicId: string, note: string): Promise<void> {
+  // Get all progress for a user
+  async getAllProgressForUser(userId: string): Promise<TopicProgress[]> {
     try {
-      const progress = await this.getUserProgress(userId);
-      const topicProgress = progress.find(p => p.topicId === topicId);
-
-      if (topicProgress) {
-        topicProgress.notes.push(note);
-      } else {
-        progress.push({
-          userId,
-          topicId,
-          isCompleted: false,
-          lastAccessed: Date.now(),
-          timeSpent: 0,
-          notes: [note],
-        });
-      }
-
-      await AsyncStorage.setItem(
-        `${this.STORAGE_KEYS.PROGRESS}_${userId}`,
-        JSON.stringify(progress)
-      );
+      const progressStr = await AsyncStorage.getItem(this.STORAGE_KEYS.PROGRESS);
+      const progress: TopicProgress[] = progressStr ? JSON.parse(progressStr) : [];
+      return progress.filter(p => p.userId === userId);
     } catch (error) {
-      console.error('Error adding note:', error);
+      console.error('Error getting user progress:', error);
       throw error;
     }
   }
 
-  // Get simplified explanation using AI
-  async getSimplifiedExplanation(content: string): Promise<string> {
+  // Generate study materials using AI
+  async generateStudyMaterials(topic: Topic): Promise<string> {
     try {
-      const aiService = AIService.getInstance();
-      return await aiService.generateSimplifiedExplanation(content);
+      const aiService = new AIService();
+      return await aiService.generateStudyMaterial(topic.name, topic.description || '');
     } catch (error) {
-      console.error('Error getting simplified explanation:', error);
-      throw error;
-    }
-  }
-
-  // Get related topics
-  async getRelatedTopics(topicId: string): Promise<Topic[]> {
-    try {
-      const allTopics = await this.getAllTopics();
-      const currentTopic = allTopics.find(t => t.id === topicId);
-
-      if (!currentTopic) {
-        throw new Error('Topic not found');
-      }
-
-      // Find topics with matching tags or category
-      return allTopics
-        .filter(topic => 
-          topic.id !== topicId && (
-            topic.category === currentTopic.category ||
-            topic.tags.some(tag => currentTopic.tags.includes(tag))
-          )
-        )
-        .sort((a, b) => {
-          const aMatchCount = a.tags.filter(tag => currentTopic.tags.includes(tag)).length;
-          const bMatchCount = b.tags.filter(tag => currentTopic.tags.includes(tag)).length;
-          return bMatchCount - aMatchCount;
-        })
-        .slice(0, 5);
-    } catch (error) {
-      console.error('Error getting related topics:', error);
+      console.error('Error generating study materials:', error);
       throw error;
     }
   }
 }
+
+export const groundSchoolService = GroundSchoolService.getInstance();

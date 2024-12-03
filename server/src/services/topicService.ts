@@ -1,12 +1,14 @@
-import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import Topic, { ITopic } from '../models/Topic';
 import { TopicGenerationError } from '../utils/errors';
 
-class TopicService {
-  private openai: OpenAI;
+export class TopicService {
+  private anthropic: Anthropic;
 
   constructor(apiKey: string) {
-    this.openai = new OpenAI({ apiKey });
+    this.anthropic = new Anthropic({
+      apiKey
+    });
   }
 
   async generateTopic(category: string): Promise<ITopic> {
@@ -31,22 +33,19 @@ class TopicService {
         }
       `;
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-opus-20240229',
+        max_tokens: 1000,
+        temperature: 0.7,
         messages: [
           {
-            role: 'system',
-            content: 'You are an expert aviation instructor creating educational content.',
-          },
-          {
             role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
+            content: prompt
+          }
+        ]
       });
 
-      const generatedContent = JSON.parse(response.choices[0].message.content || '{}');
+      const generatedContent = JSON.parse(response.content[0].text || '{}');
 
       const topic = new Topic({
         ...generatedContent,
@@ -128,3 +127,6 @@ class TopicService {
     return result.deletedCount === 1;
   }
 }
+
+// Create and export a singleton instance
+export const topicService = new TopicService(process.env.ANTHROPIC_API_KEY || '');

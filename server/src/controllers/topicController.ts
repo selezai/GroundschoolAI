@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import TopicService from '../services/topicService';
+import { topicService } from '../services/topicService';
 import { NotFoundError, ValidationError } from '../utils/errors';
-
-const topicService = new TopicService(process.env.OPENAI_API_KEY || '');
 
 // Validation schemas
 const generateTopicSchema = z.object({
