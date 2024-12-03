@@ -1,23 +1,33 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import mongoose from 'mongoose';
 import topicRoutes from './routes/topicRoutes';
 import aiRoutes from './routes/aiRoutes';
+import authRoutes from './routes/authRoutes';
 import healthRoutes from './routes/healthRoutes';
 import fs from 'fs';
 
 const app = express();
 const port = process.env.PORT || 8080;
 
+// Connect to MongoDB
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/groundschool';
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
 // Print environment variables (excluding sensitive values)
 console.log('Environment:', {
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
+  MONGODB_URI: process.env.MONGODB_URI ? '✓' : '✗',
+  JWT_SECRET: process.env.JWT_SECRET ? '✓' : '✗',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✓' : '✗',
   SUPABASE_URL: process.env.SUPABASE_URL ? '✓' : '✗',
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? '✓' : '✗',
   PAYSTACK_PUBLIC_KEY: process.env.PAYSTACK_PUBLIC_KEY ? '✓' : '✗',
-  PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY ? '✓' : '✗',
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✓' : '✗'
+  PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY ? '✓' : '✗'
 });
 
 // CORS configuration
@@ -35,6 +45,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/health', healthRoutes);
