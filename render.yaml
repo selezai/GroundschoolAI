@@ -3,9 +3,15 @@ services:
     name: groundschoolai
     env: node
     region: oregon
-    rootDir: server
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: |
+      # Build client
+      npm install
+      npm run build
+      # Build server
+      cd server
+      npm install
+      npm run build
+    startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
         value: production

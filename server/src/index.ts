@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import topicRoutes from './routes/topicRoutes';
 import aiRoutes from './routes/aiRoutes';
 import healthRoutes from './routes/healthRoutes';
@@ -32,9 +33,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Routes
+// API Routes
 app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
+
+// Serve static files from the React app
+const clientBuildPath = path.join(__dirname, '../../dist');
+app.use(express.static(clientBuildPath));
+
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
+});
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
