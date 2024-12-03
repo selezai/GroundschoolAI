@@ -4,15 +4,24 @@ services:
     env: node
     region: oregon
     buildCommand: |
-      cd server && npm install && npm run build && cd ..
+      # Install dependencies and build server
+      cd server
       npm install
-      npx expo export:web
+      npm run build
+      cd ..
+      
+      # Install root dependencies
+      npm install
+      
+      # Install expo-cli globally
+      npm install -g expo-cli
+      
+      # Build web client
+      npm run web:build
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 8080
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

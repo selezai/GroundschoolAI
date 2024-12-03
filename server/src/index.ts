@@ -49,13 +49,20 @@ app.use('/api/topics', topicRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Serve static files from the Expo web build
-const webBuildPath = path.join(__dirname, '../../web-build');
+const webBuildPath = path.join(__dirname, '../../../dist/web-build');
+console.log('Web build path:', webBuildPath);
 app.use(express.static(webBuildPath));
 
 // Handle client-side routing
 app.get('*', (req, res) => {
   try {
-    res.sendFile(path.join(webBuildPath, 'index.html'));
+    const indexPath = path.join(webBuildPath, 'index.html');
+    console.log('Serving index.html from:', indexPath);
+    if (!require('fs').existsSync(indexPath)) {
+      console.error('index.html not found at:', indexPath);
+      return res.status(404).send('Application files not found');
+    }
+    res.sendFile(indexPath);
   } catch (error) {
     console.error('Error serving index.html:', error);
     res.status(500).send('Error serving the application');
