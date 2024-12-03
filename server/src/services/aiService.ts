@@ -1,5 +1,4 @@
 import { Anthropic } from '@anthropic-ai/sdk';
-import { ChatCompletion } from '@anthropic-ai/sdk/resources';
 
 class AIService {
   private static instance: AIService;
