@@ -27,6 +27,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^20.10.4",
+    "@types/node-fetch": "^3.2.9",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
