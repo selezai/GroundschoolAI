@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../services/api';
 
 interface User {
   id: string;
@@ -28,7 +29,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadStoredUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem('@GroundSchoolAI:user');
-      if (storedUser) {
+      const token = await AsyncStorage.getItem('@GroundSchoolAI:token');
+      if (storedUser && token) {
         setUser(JSON.parse(storedUser));
       }
     } catch (error) {
@@ -40,14 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      // TODO: Implement actual authentication
-      const user = {
-        id: '1',
-        email,
-        name: 'Test User',
-      };
-
+      const { user, token } = await auth.login({ email, password });
       await AsyncStorage.setItem('@GroundSchoolAI:user', JSON.stringify(user));
+      await AsyncStorage.setItem('@GroundSchoolAI:token', token);
       setUser(user);
     } catch (error) {
       console.error('Error signing in:', error);
@@ -57,14 +54,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      // TODO: Implement actual registration
-      const user = {
-        id: '1',
-        email,
-        name,
-      };
-
+      const { user, token } = await auth.register({ email, password, name });
       await AsyncStorage.setItem('@GroundSchoolAI:user', JSON.stringify(user));
+      await AsyncStorage.setItem('@GroundSchoolAI:token', token);
       setUser(user);
     } catch (error) {
       console.error('Error signing up:', error);
@@ -74,7 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      await AsyncStorage.removeItem('@GroundSchoolAI:user');
+      await AsyncStorage.multiRemove(['@GroundSchoolAI:user', '@GroundSchoolAI:token']);
+      auth.logout();
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
