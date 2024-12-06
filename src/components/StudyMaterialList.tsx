@@ -1,26 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Modal,
   Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { StudyMaterial } from '../types/study';
+import StudyMaterialDetail from './StudyMaterialDetail';
+import Progress from 'react-native-progress';
 
 interface StudyMaterialListProps {
   materials: StudyMaterial[];
-  onMaterialPress: (material: StudyMaterial) => void;
   onDeletePress?: (material: StudyMaterial) => void;
 }
 
 const StudyMaterialList: React.FC<StudyMaterialListProps> = ({
   materials,
-  onMaterialPress,
   onDeletePress,
 }) => {
+  const [selectedMaterial, setSelectedMaterial] = useState<StudyMaterial | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<{ [key: string]: any }>({});
+  const [processingInterval, setProcessingInterval] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Start polling for processing status of pending/processing materials
+    const processingMaterials = materials.filter(
+      m => m.processingStatus === 'pending' || m.processingStatus === 'processing'
+    );
+
+    if (processingMaterials.length > 0) {
+      const interval = setInterval(async () => {
+        for (const material of processingMaterials) {
+          try {
+            const response = await studyApi.getProcessingStatus(material._id, material.jobId);
+            setProcessingStatus(prev => ({
+              ...prev,
+              [material._id]: response
+            }));
+
+            // Stop polling if all materials are done processing
+            if (processingMaterials.every(m => 
+              m.processingStatus === 'completed' || 
+              m.processingStatus === 'failed'
+            )) {
+              if (processingInterval) {
+                clearInterval(processingInterval);
+                setProcessingInterval(null);
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching processing status:', error);
+          }
+        }
+      }, 5000); // Poll every 5 seconds
+
+      setProcessingInterval(interval);
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    }
+  }, [materials]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -41,7 +87,7 @@ const StudyMaterialList: React.FC<StudyMaterialListProps> = ({
   const renderItem = ({ item }: { item: StudyMaterial }) => (
     <TouchableOpacity
       style={styles.materialItem}
-      onPress={() => onMaterialPress(item)}
+      onPress={() => setSelectedMaterial(item)}
     >
       <View style={styles.materialIcon}>
         <Icon
@@ -58,8 +104,25 @@ const StudyMaterialList: React.FC<StudyMaterialListProps> = ({
         <Text style={styles.materialMeta}>
           {formatDate(item.uploadDate)} • {formatSize(item.size)}
         </Text>
-        {item.processedStatus === 'processing' && (
-          <Text style={styles.processingText}>Processing...</Text>
+        {(item.processingStatus === 'pending' || item.processingStatus === 'processing') && (
+          <View style={styles.processingContainer}>
+            <Text style={styles.processingText}>
+              {item.processingStatus === 'pending' ? 'Pending...' : 'Processing...'}
+            </Text>
+            {processingStatus[item._id]?.progress && (
+              <Progress.Bar
+                progress={processingStatus[item._id].progress}
+                width={100}
+                color="#2D9CDB"
+                style={styles.progressBar}
+              />
+            )}
+          </View>
+        )}
+        {item.processingStatus === 'failed' && (
+          <Text style={styles.errorText}>
+            Processing failed: {item.processingError}
+          </Text>
         )}
       </View>
 
@@ -75,20 +138,35 @@ const StudyMaterialList: React.FC<StudyMaterialListProps> = ({
   );
 
   return (
-    <FlatList
-      data={materials}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContainer}
-      ListEmptyComponent={() => (
-        <View style={styles.emptyContainer}>
-          <Icon name="upload-file" size={48} color="#CCC" />
-          <Text style={styles.emptyText}>
-            No study materials yet.{'\n'}Tap the + button to upload.
-          </Text>
-        </View>
-      )}
-    />
+    <>
+      <FlatList
+        data={materials}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Icon name="upload-file" size={48} color="#CCC" />
+            <Text style={styles.emptyText}>
+              No study materials yet.{'\n'}Tap the + button to upload.
+            </Text>
+          </View>
+        )}
+      />
+
+      <Modal
+        visible={selectedMaterial !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        {selectedMaterial && (
+          <StudyMaterialDetail
+            material={selectedMaterial}
+            onClose={() => setSelectedMaterial(null)}
+          />
+        )}
+      </Modal>
+    </>
   );
 };
 
@@ -132,9 +210,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
+  processingContainer: {
+    marginTop: 4,
+  },
   processingText: {
     fontSize: 12,
     color: '#2D9CDB',
+    marginBottom: 4,
+  },
+  progressBar: {
+    marginTop: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF3B30',
     marginTop: 4,
   },
   deleteButton: {

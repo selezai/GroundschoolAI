@@ -26,8 +26,21 @@ export const studyApi = {
   },
 
   // Get processing status of uploaded material
-  getProcessingStatus: async (materialId: string): Promise<ProcessingStatus> => {
-    const response = await api.get(`/study/status/${materialId}`);
+  getProcessingStatus: async (materialId: string, jobId?: string): Promise<{
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress?: number;
+    error?: string;
+  }> => {
+    const token = await getAuthToken();
+    const response = await axios.get(
+      `${API_BASE_URL}/study/materials/${materialId}/status`,
+      {
+        params: { jobId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     return response.data;
   },
 
@@ -136,16 +149,17 @@ export const studyApi = {
     return response.data;
   },
 
-  async getProcessingStatus(
-    materialId: string
-  ): Promise<{
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    progress?: number;
-    error?: string;
-  }> {
+  async generateQuestions(
+    materialId: string,
+    config: {
+      count: number;
+      difficulty: 'easy' | 'medium' | 'hard';
+    }
+  ): Promise<any[]> => {
     const token = await getAuthToken();
-    const response = await axios.get(
-      `${API_BASE_URL}/study/materials/${materialId}/status`,
+    const response = await axios.post(
+      `${API_BASE_URL}/study/materials/${materialId}/questions`,
+      config,
       {
         headers: {
           Authorization: `Bearer ${token}`,
