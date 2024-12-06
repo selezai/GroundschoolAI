@@ -11,14 +11,20 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.18.0",
+    "@types/nodemailer": "^6.4.17",
     "bcryptjs": "^2.4.3",
+    "bull": "^4.16.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
-    "node-fetch": "^3.3.2",
-    "openai": "^4.24.1"
+    "node-fetch": "^2.6.7",
+    "nodemailer": "^6.9.16",
+    "openai": "^4.24.1",
+    "pdf-parse": "^1.1.1",
+    "redis": "^4.7.0",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -27,7 +33,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^20.10.4",
-    "@types/node-fetch": "^3.2.9",
+    "@types/node-fetch": "^2.6.4",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
